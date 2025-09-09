@@ -1,7 +1,8 @@
+dotenv
 streamlit
 requests
 python-docx
 pypdf
-dotenv
-
+chromadb
+sentence-transformers
 
