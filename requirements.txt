@@ -1,0 +1,16 @@
+# Core
+streamlit==1.26.1
+requests==2.31.0
+python-dotenv==1.0.1
+
+# Document processing
+unstructured==0.7.6
+sentence-transformers==2.2.2
+
+# Vector database
+chromadb==0.4.3
+
+# Optional (if you want advanced LLM utilities)
+langchain==0.1.228
+llama-index==0.6.11
+
