@@ -53,13 +53,12 @@ if st.button("Generate Questions & Analysis"):
                 st.info("Job description not provided. Skipping gap analysis.")
 
             # --- Generated Questions ---
-            st.subheader("❓ Interview Questions")
-            questions = generate_questions(resume_text, jd_text or "")
-            if isinstance(questions, str):
-                #questions_list = [q.strip() for q in questions.split("\n") if q.strip()]
-                questions = generate_questions(resume_text, jd_text)
-                formatted = "\n".join([f"- {q.lstrip('1234567890. ')}" for q in questions.split("\n") if q.strip()])
-                st.markdown(formatted)
+            st.subheader("Interview Questions:")
+           questions = generate_questions(resume_text, jd_text or "")
+           if isinstance(questions, str):
+            # Clean up numbering/dots the model adds
+            formatted = "\n".join([f"- {q.lstrip('1234567890. ').strip()}" for q in questions.split("\n") if q.strip()])
+    st.markdown(formatted)
             else:
                 questions_list = questions
 
