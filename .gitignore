@@ -3,3 +3,10 @@ __pycache__/
 *.pyc
 *.pkl
 .env
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+*.log
+.DS_Store
+
