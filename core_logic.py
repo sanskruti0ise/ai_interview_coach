@@ -1,7 +1,7 @@
-# core_logic.py
 import os
 import requests
 from dotenv import load_dotenv
+from ingest import chunk_text, embed_and_store, collection
 
 load_dotenv()
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
@@ -22,42 +22,51 @@ def call_mistral(prompt):
 
     response = requests.post(url, headers=headers, json=data)
     response.raise_for_status()
-
     result = response.json()
     return result["choices"][0]["message"]["content"]
-
 
 def generate_gap_analysis(resume_text, jd_text):
     prompt = f"Analyze the resume vs JD:\nResume: {resume_text}\nJD: {jd_text}\nProvide a gap analysis summary."
     return call_mistral(prompt)
-'''
-def generate_questions(resume_text, jd_text):
-    prompt = f"Generate 5 targeted interview questions based on the resume and JD:\nResume: {resume_text}\nJD: {jd_text}"
-    return call_mistral(prompt)
-'''
+
 def generate_questions(resume_text, jd_text=None):
+    # Step 1: Clear and re-ingest data
+    resume_chunks = chunk_text(resume_text)
+    embed_and_store(resume_chunks, source="resume")
+
+    if jd_text:
+        jd_chunks = chunk_text(jd_text)
+        embed_and_store(jd_chunks, source="jd")
+
+    # Step 2: Query vector DB for relevant chunks
+    query = "Generate tailored interview questions"
+    results = collection.query(
+        query_texts=[query],
+        n_results=5
+    )
+
+    retrieved_context = "\n".join(results["documents"][0])
+
+    # Step 3: Build RAG prompt
     if jd_text:
         prompt = f"""
-        You are an AI Interview Coach. Based on the following resume and job description, 
-        generate exactly 10 tailored interview questions that focus on the candidate’s skills, 
-        experiences, and potential gaps.
+        You are an AI Interview Coach. Based on the candidate’s resume and job description,
+        generate exactly 10 tailored interview questions that focus on technical depth,
+        project experience, and gaps.
 
-        Resume:
-        {resume_text}
-
-        Job Description:
-        {jd_text}
+        Retrieved Context:
+        {retrieved_context}
 
         Format as a numbered list (1–10).
         """
     else:
         prompt = f"""
-        You are an AI Interview Coach. Based only on the following resume, 
-        generate exactly 10 interview questions that the candidate might be asked 
-        in a technical and behavioral interview.
+        You are an AI Interview Coach. Based only on the candidate’s resume,
+        generate exactly 10 tailored interview questions focusing on technical
+        and behavioral aspects.
 
-        Resume:
-        {resume_text}
+        Retrieved Context:
+        {retrieved_context}
 
         Format as a numbered list (1–10).
         """
