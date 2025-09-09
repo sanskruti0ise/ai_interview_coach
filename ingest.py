@@ -1,20 +1,18 @@
 import tempfile
-from unstructured.partition.auto import partition
+from pypdf import PdfReader
 
 def load_resume(uploaded_file):
-    """
-    Parse a PDF/DOCX resume uploaded via Streamlit and return extracted text.
-    """
-    # Save uploaded file to a temporary file
-    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp:
-        tmp.write(uploaded_file.read())
-        tmp_path = tmp.name
-
-    # Use unstructured to parse the temp file
-    elements = partition(filename=tmp_path)
-    text = "\n".join([str(el) for el in elements])
-
-    return text
+    if uploaded_file.name.endswith(".pdf"):
+        pdf = PdfReader(uploaded_file)
+        text = "\n".join([page.extract_text() for page in pdf.pages if page.extract_text()])
+        return text
+    elif uploaded_file.name.endswith(".docx"):
+        from docx import Document
+        doc = Document(uploaded_file)
+        text = "\n".join([p.text for p in doc.paragraphs])
+        return text
+    else:
+        return "Unsupported file format"
 
 def load_jd(text):
     """Process job description text (already in string)."""
