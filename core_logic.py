@@ -2,15 +2,22 @@
 import os
 import requests
 from dotenv import load_dotenv
-from ingest_rag import embed_model, collection  # Use the RAG-enabled ingest
+import chromadb
+from sentence_transformers import SentenceTransformer
 
 load_dotenv()
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 
+# Initialize embedding model
+embed_model = SentenceTransformer("BAAI/bge-large-en-v1.5")  # CPU/GPU compatible
 
-def call_mistral(prompt):
+# Initialize ChromaDB client
+client = chromadb.Client()
+collection = client.get_or_create_collection("ai_interview_coach")
+
+def call_mistral(prompt, temperature=0.2):
     """
-    Calls the Mistral API with a prompt and returns the response text.
+    Calls Mistral API with low temperature for factual responses.
     """
     url = "https://api.mistral.ai/v1/chat/completions"
     headers = {
@@ -18,78 +25,54 @@ def call_mistral(prompt):
         "Content-Type": "application/json",
     }
     data = {
-        "model": "mistral-small",  # or medium/large if your key allows
+        "model": "mistral-small",
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.7,
+        "temperature": temperature,
     }
 
     response = requests.post(url, headers=headers, json=data)
     response.raise_for_status()
-    result = response.json()
-    return result["choices"][0]["message"]["content"]
+    return response.json()["choices"][0]["message"]["content"]
 
 
-def retrieve_context(query_text, top_k=3):
+def retrieve_context(query, top_k=5):
     """
-    Query ChromaDB using embeddings from the resume text (or JD).
-    Returns top-k relevant text chunks as context.
+    Retrieves the most relevant chunks from ChromaDB based on query.
     """
-    embedding = embed_model.encode([query_text]).tolist()
+    query_embedding = embed_model.encode(query).tolist()
     results = collection.query(
-        query_embeddings=embedding,
-        n_results=top_k,
+        query_embeddings=[query_embedding],
+        n_results=top_k
     )
-    # Flatten results into a single string
-    context = "\n".join(results['documents'][0])
+    # Flatten the documents from results
+    context = " ".join([doc for docs in results['documents'] for doc in docs])
     return context
 
 
-def generate_gap_analysis(resume_text, jd_text=None, use_rag=False):
+def generate_gap_analysis(resume_text, jd_text=None):
     """
-    Generate a Resume-to-JD gap analysis.
-    If use_rag=True, it retrieves relevant context from the DB.
+    Generate a factual gap analysis using RAG.
     """
-    context = resume_text
+    query = f"Analyze the resume vs JD and provide a concise gap analysis."
     if jd_text:
-        context += f"\nJob Description:\n{jd_text}"
+        combined_text = resume_text + "\n" + jd_text
+    else:
+        combined_text = resume_text
 
-    if use_rag:
-        context = retrieve_context(resume_text)
-        if jd_text:
-            context += f"\nJob Description:\n{jd_text}"
-
-    prompt = f"""
-    You are an AI Interview Coach. Analyze the resume vs JD and provide a clear 
-    gap analysis summary.
-
-    Context:
-    {context}
-    """
+    context = retrieve_context(combined_text)
+    prompt = f"Context: {context}\n\nTask: {query}"
     return call_mistral(prompt)
 
 
-def generate_questions(resume_text, jd_text=None, use_rag=False):
+def generate_questions(resume_text, jd_text=None, n_questions=10):
     """
-    Generate 10 targeted interview questions based on resume and JD.
-    If use_rag=True, uses retrieved context from ChromaDB.
+    Generate factual interview questions using RAG.
     """
-    context = resume_text
+    query = f"Generate exactly {n_questions} interview questions based on the context."
+    combined_text = resume_text
     if jd_text:
-        context += f"\nJob Description:\n{jd_text}"
+        combined_text += "\n" + jd_text
 
-    if use_rag:
-        context = retrieve_context(resume_text)
-        if jd_text:
-            context += f"\nJob Description:\n{jd_text}"
-
-    prompt = f"""
-    You are an AI Interview Coach. Based on the following context, 
-    generate exactly 10 tailored interview questions focusing on skills, 
-    experience, and potential gaps.
-
-    Context:
-    {context}
-
-    Format as a numbered list (1–10).
-    """
+    context = retrieve_context(combined_text)
+    prompt = f"Context: {context}\n\nTask: {query}\nFormat as a numbered list."
     return call_mistral(prompt)

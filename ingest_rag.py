@@ -40,6 +40,7 @@ def embed_and_store(chunks, source):
     for i, chunk in enumerate(chunks):
         embedding = embed_model.encode(chunk).tolist()
         collection.add(
+            ids=[f"{source}_chunk_{i}"],  # unique ID per chunk
             documents=[chunk],
             metadatas=[{"source": source, "chunk_id": i}],
             embeddings=[embedding]

@@ -1,72 +1,67 @@
+# app_rag.py
 import streamlit as st
-from ingest import load_resume, chunk_text
-from core_logic import generate_gap_analysis, generate_questions
+from ingest_rag import load_resume, load_jd, chunk_text, embed_and_store
+from core_logic import generate_gap_analysis, generate_questions, retrieve_context
 
-# Page Config
-st.set_page_config(
-    page_title="AI Interview Coach",
-    layout="wide"
-)
+st.set_page_config(page_title="AI Interview Coach (Phase 2)", layout="wide")
+st.title("🧠 AI Interview Coach (RAG-Powered)")
 
-st.title("🤖 AI Interview Coach")
+# Upload resume
+uploaded_file = st.file_uploader("Upload Resume (PDF/DOCX)", type=["pdf", "docx"])
+jd_text = st.text_area("Paste Job Description (optional)", height=200)
 
-# Step 1: Resume Upload
-st.header("Step 1: Upload Resume (PDF or DOCX)")
-resume_file = st.file_uploader("Choose your resume file", type=["pdf", "docx"])
+if uploaded_file:
+    resume_text = load_resume(uploaded_file)
+    st.success("✅ Resume loaded successfully!")
 
-# Step 2: Job Description Input (Optional)
-st.header("Step 2: Enter Job Description (Optional)")
-jd_text = st.text_area("Paste the job description here (optional):", height=200)
+    # Store chunks in vector DB (RAG)
+    chunks = chunk_text(resume_text)
+    embed_and_store(chunks, source=uploaded_file.name)
 
-# Step 3: Generate Button
-if st.button("Generate Questions & Analysis"):
+    # Initialize session state
+    if "gap_analysis" not in st.session_state:
+        st.session_state.gap_analysis = None
+    if "questions" not in st.session_state:
+        st.session_state.questions = None
 
-    if not resume_file:
-        st.warning("Please upload a resume file.")
-    else:
-        with st.spinner("Processing..."):
+    st.subheader("Select an Action")
+    col1, col2 = st.columns(2)
 
-            # --- Load Resume ---
-            resume_text = load_resume(resume_file)
+    with col1:
+        if st.button("📝 Generate Gap Analysis"):
+            with st.spinner("Analyzing resume vs JD..."):
+                st.session_state.gap_analysis = generate_gap_analysis(resume_text, jd_text)
+                # Retrieve RAG context
+                st.session_state.gap_context = retrieve_context(resume_text + "\n" + (jd_text or ""))
 
-            # --- Chunk Text ---
-            resume_chunks = chunk_text(resume_text)
-            st.subheader("📄 Chunked Resume")
-            for i, chunk in enumerate(resume_chunks):
-                st.text_area(f"Chunk {i+1}", chunk, height=100)
+    with col2:
+        if st.button("💡 Generate Interview Questions"):
+            with st.spinner("Generating questions..."):
+                st.session_state.questions = generate_questions(resume_text, jd_text)
+                # Retrieve RAG context
+                st.session_state.q_context = retrieve_context(resume_text + "\n" + (jd_text or ""))
 
-            # --- Chunk Job Description (if provided) ---
-            if jd_text.strip():
-                jd_chunks = chunk_text(jd_text)
-                st.subheader("📄 Chunked Job Description")
-                for i, chunk in enumerate(jd_chunks):
-                    st.text_area(f"Chunk {i+1}", chunk, height=100)
-            else:
-                jd_text = None
+    # Display Gap Analysis
+    if st.session_state.gap_analysis:
+        st.subheader("📝 Gap Analysis")
+        st.markdown(st.session_state.gap_analysis)
+        if "gap_context" in st.session_state:
+            with st.expander("Show Behind-the-Scenes RAG Context"):
+                st.text(st.session_state.gap_context)
 
-            # --- Gap Analysis (only if JD provided) ---
-            if jd_text:
-                st.subheader("🔍 Gap Analysis")
-                gap_summary = generate_gap_analysis(resume_text, jd_text)
-                st.success(gap_summary)
-            else:
-                st.info("Job description not provided. Skipping gap analysis.")
-
-            # --- Generated Questions ---
-            st.subheader("Interview Questions:")
-            questions = generate_questions(resume_text, jd_text or "")
-            # Always convert to a list
-            if isinstance(questions, str):
-                # Clean up numbering/dots the model adds
-                questions_list = [
-                    q.lstrip('1234567890. ').strip()
-                    for q in questions.split("\n")
-                    if q.strip()
-                    ]
-            else:
-                questions_list = questions
-            # Display as a numbered list in Streamlit
-            for idx, q in enumerate(questions_list, start=1):
+    # Display Interview Questions
+    if st.session_state.questions:
+        st.subheader("💡 Interview Questions")
+        questions = st.session_state.questions
+        if isinstance(questions, str):
+            formatted = "\n".join([
+                f"- {q.lstrip('1234567890. ').strip()}"
+                for q in questions.split("\n") if q.strip()
+            ])
+            st.markdown(formatted)
+        else:
+            for idx, q in enumerate(questions, start=1):
                 st.write(f"{idx}. {q}")
-
-
+        if "q_context" in st.session_state:
+            with st.expander("Show Behind-the-Scenes RAG Context"):
+                st.text(st.session_state.q_context)
