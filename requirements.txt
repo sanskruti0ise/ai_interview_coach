@@ -4,6 +4,6 @@ python-docx
 pypdf
 unstructured==0.10.30
 dotenv
-"unstructured[pdf]"
+unstructured[pdf]
 
 
