@@ -55,13 +55,18 @@ if st.button("Generate Questions & Analysis"):
             # --- Generated Questions ---
             st.subheader("Interview Questions:")
             questions = generate_questions(resume_text, jd_text or "")
+            # Always convert to a list
             if isinstance(questions, str):
                 # Clean up numbering/dots the model adds
-                formatted = "\n".join([f"- {q.lstrip('1234567890. ').strip()}" for q in questions.split("\n") if q.strip()])
-                st.markdown(formatted)
+                questions_list = [
+                    q.lstrip('1234567890. ').strip()
+                    for q in questions.split("\n")
+                    if q.strip()
+                    ]
             else:
                 questions_list = questions
-
+            # Display as a numbered list in Streamlit
             for idx, q in enumerate(questions_list, start=1):
                 st.write(f"{idx}. {q}")
+
 
