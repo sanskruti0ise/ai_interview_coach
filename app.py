@@ -54,11 +54,11 @@ if st.button("Generate Questions & Analysis"):
 
             # --- Generated Questions ---
             st.subheader("Interview Questions:")
-           questions = generate_questions(resume_text, jd_text or "")
-           if isinstance(questions, str):
-            # Clean up numbering/dots the model adds
-            formatted = "\n".join([f"- {q.lstrip('1234567890. ').strip()}" for q in questions.split("\n") if q.strip()])
-    st.markdown(formatted)
+            questions = generate_questions(resume_text, jd_text or "")
+            if isinstance(questions, str):
+                # Clean up numbering/dots the model adds
+                formatted = "\n".join([f"- {q.lstrip('1234567890. ').strip()}" for q in questions.split("\n") if q.strip()])
+                st.markdown(formatted)
             else:
                 questions_list = questions
 
