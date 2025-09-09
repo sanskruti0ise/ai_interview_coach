@@ -56,7 +56,10 @@ if st.button("Generate Questions & Analysis"):
             st.subheader("❓ Interview Questions")
             questions = generate_questions(resume_text, jd_text or "")
             if isinstance(questions, str):
-                questions_list = [q.strip() for q in questions.split("\n") if q.strip()]
+                #questions_list = [q.strip() for q in questions.split("\n") if q.strip()]
+                questions = generate_questions(resume_text, jd_text)
+                formatted = "\n".join([f"- {q.lstrip('1234567890. ')}" for q in questions.split("\n") if q.strip()])
+                st.markdown(formatted)
             else:
                 questions_list = questions
 
